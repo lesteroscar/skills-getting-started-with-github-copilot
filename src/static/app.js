@@ -30,6 +30,21 @@ document.addEventListener("DOMContentLoaded", () => {
       const card = document.createElement("div");
       card.className = "activity-card";
 
+      // Build participants HTML with delete icon
+      let participantsHTML = "";
+      if (info.participants.length > 0) {
+        participantsHTML = `<ul class="participants-list no-bullets">` +
+          info.participants
+            .map(
+              (email) =>
+                `<li><span class="participant-badge">${email}</span> <button class="delete-participant" title="Remove participant" data-activity="${encodeURIComponent(name)}" data-email="${encodeURIComponent(email)}">&#128465;</button></li>`
+            )
+            .join("") +
+          `</ul>`;
+      } else {
+        participantsHTML = `<span class="no-participants">No one signed up yet.</span>`;
+      }
+
       card.innerHTML = `
         <h4>${name}</h4>
         <p><strong>Description:</strong> ${info.description}</p>
@@ -37,18 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <p><strong>Max Participants:</strong> ${info.max_participants}</p>
         <div class="participants-section">
           <strong>Participants:</strong>
-          ${
-            info.participants.length > 0
-              ? `<ul class="participants-list">
-                  ${info.participants
-                    .map(
-                      (email) =>
-                        `<li><span class="participant-badge">${email}</span></li>`
-                    )
-                    .join("")}
-                </ul>`
-              : `<span class="no-participants">No one signed up yet.</span>`
-          }
+          ${participantsHTML}
         </div>
       `;
       activitiesList.appendChild(card);
@@ -58,6 +62,28 @@ document.addEventListener("DOMContentLoaded", () => {
       option.value = name;
       option.textContent = name;
       activitySelect.appendChild(option);
+    });
+
+    // Add event listeners for delete buttons
+    document.querySelectorAll(".delete-participant").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        const activity = decodeURIComponent(btn.getAttribute("data-activity"));
+        const email = decodeURIComponent(btn.getAttribute("data-email"));
+        if (!confirm(`Remove ${email} from ${activity}?`)) return;
+        try {
+          const response = await fetch(`/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`, {
+            method: "POST",
+          });
+          if (response.ok) {
+            fetchActivities();
+          } else {
+            const result = await response.json();
+            alert(result.detail || "Failed to remove participant.");
+          }
+        } catch (error) {
+          alert("Failed to remove participant. Please try again.");
+        }
+      });
     });
   }
 
@@ -82,6 +108,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // Refresh activities list immediately after successful signup
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -103,4 +131,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize app
   fetchActivities();
+
+  // Add CSS for no-bullets class and delete button
+  const style = document.createElement('style');
+  style.innerHTML = `
+  .no-bullets {
+    list-style: none;
+    padding-left: 0;
+  }
+  .delete-participant {
+    background: none;
+    border: none;
+    color: #c62828;
+    font-size: 1.1em;
+    margin-left: 8px;
+    cursor: pointer;
+    vertical-align: middle;
+    border-radius: 50%;
+    transition: background 0.2s;
+  }
+  .delete-participant:hover {
+    background: #ffebee;
+  }
+  `;
+  document.head.appendChild(style);
 });
